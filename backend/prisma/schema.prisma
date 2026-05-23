@@ -1,0 +1,251 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String    @map("password_hash")
+  username      String    @unique
+  avatarUrl     String?   @map("avatar_url")
+  role          String    @default("user")
+  pointBalance  Int       @default(0) @map("point_balance")
+  isPremium     Boolean   @default(false) @map("is_premium")
+  premiumUntil  DateTime? @map("premium_until")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  mangas             Manga[]
+  readingHistories   ReadingHistory[]
+  chapterUnlocks     ChapterUnlock[]
+  mangaLikes         MangaLike[]
+  mangaFollows       MangaFollow[]
+  comments           Comment[]
+  commentLikes       CommentLike[]
+  following          UserFollow[]     @relation("follower")
+  followers          UserFollow[]     @relation("following")
+  statusPosts        StatusPost[]
+  notifications      Notification[]   @relation("recipient")
+  actorNotifications Notification[]   @relation("actor")
+  taskCompletions    TaskCompletion[]
+  pointTransactions  PointTransaction[]
+
+  @@map("users")
+}
+
+model Manga {
+  id           String   @id @default(uuid())
+  authorId     String   @map("author_id")
+  title        String
+  description  String?
+  coverUrl     String?  @map("cover_url")
+  status       String   @default("ongoing")
+  genres       String[] @default([])
+  viewCount    Int      @default(0) @map("view_count")
+  likeCount    Int      @default(0) @map("like_count")
+  followCount  Int      @default(0) @map("follow_count")
+  commentCount Int      @default(0) @map("comment_count")
+  updatedAt    DateTime @default(now()) @map("updated_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  author       User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  chapters     Chapter[]
+  mangaLikes   MangaLike[]
+  mangaFollows MangaFollow[]
+  comments     Comment[]
+
+  @@map("manga")
+}
+
+model Chapter {
+  id            String   @id @default(uuid())
+  mangaId       String   @map("manga_id")
+  chapterNumber Int      @map("chapter_number")
+  title         String?
+  pageCount     Int      @default(0) @map("page_count")
+  isLocked      Boolean  @default(false) @map("is_locked")
+  unlockCost    Int      @default(0) @map("unlock_cost")
+  isPremiumOnly Boolean  @default(false) @map("is_premium_only")
+  publishedAt   DateTime @default(now()) @map("published_at")
+
+  manga          Manga            @relation(fields: [mangaId], references: [id], onDelete: Cascade)
+  pages          Page[]
+  readingHistory ReadingHistory[]
+  chapterUnlocks ChapterUnlock[]
+
+  @@unique([mangaId, chapterNumber])
+  @@map("chapters")
+}
+
+model Page {
+  id         String @id @default(uuid())
+  chapterId  String @map("chapter_id")
+  pageNumber Int    @map("page_number")
+  imageUrl   String @map("image_url")
+
+  chapter Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  @@unique([chapterId, pageNumber])
+  @@map("pages")
+}
+
+model ReadingHistory {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  chapterId String   @map("chapter_id")
+  lastPage  Int      @default(1) @map("last_page")
+  readAt    DateTime @default(now()) @map("read_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chapter Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, chapterId])
+  @@map("reading_history")
+}
+
+model ChapterUnlock {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  chapterId   String   @map("chapter_id")
+  pointsSpent Int      @map("points_spent")
+  unlockedAt  DateTime @default(now()) @map("unlocked_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chapter Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, chapterId])
+  @@map("chapter_unlocks")
+}
+
+model MangaLike {
+  userId    String   @map("user_id")
+  mangaId   String   @map("manga_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  manga Manga @relation(fields: [mangaId], references: [id], onDelete: Cascade)
+
+  @@id([userId, mangaId])
+  @@map("manga_likes")
+}
+
+model MangaFollow {
+  userId    String   @map("user_id")
+  mangaId   String   @map("manga_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  manga Manga @relation(fields: [mangaId], references: [id], onDelete: Cascade)
+
+  @@id([userId, mangaId])
+  @@map("manga_follows")
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  mangaId   String   @map("manga_id")
+  userId    String   @map("user_id")
+  parentId  String?  @map("parent_id")
+  content   String
+  likeCount Int      @default(0) @map("like_count")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  manga        Manga         @relation(fields: [mangaId], references: [id], onDelete: Cascade)
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent       Comment?      @relation("comment_replies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies      Comment[]     @relation("comment_replies")
+  commentLikes CommentLike[]
+
+  @@map("comments")
+}
+
+model CommentLike {
+  userId    String   @map("user_id")
+  commentId String   @map("comment_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@id([userId, commentId])
+  @@map("comment_likes")
+}
+
+model UserFollow {
+  followerId  String   @map("follower_id")
+  followingId String   @map("following_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  follower  User @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followingId])
+  @@map("user_follows")
+}
+
+model StatusPost {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  content   String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("status_posts")
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  recipientId String   @map("recipient_id")
+  actorId     String?  @map("actor_id")
+  type        String
+  refId       String?  @map("ref_id")
+  isRead      Boolean  @default(false) @map("is_read")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  recipient User  @relation("recipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  actor     User? @relation("actor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@map("notifications")
+}
+
+model Task {
+  id          String   @id @default(uuid())
+  title       String
+  type        String
+  actionType  String   @map("action_type")
+  pointReward Int      @map("point_reward")
+  isActive    Boolean  @default(true) @map("is_active")
+
+  completions TaskCompletion[]
+
+  @@map("tasks")
+}
+
+model TaskCompletion {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  taskId      String   @map("task_id")
+  completedAt DateTime @default(now()) @map("completed_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@map("task_completions")
+}
+
+model PointTransaction {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  amount    Int
+  reason    String
+  refId     String?  @map("ref_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("point_transactions")
+}
