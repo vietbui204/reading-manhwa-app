@@ -3,6 +3,7 @@ import 'package:appmanga/features/points/domain/usecases/get_tasks_usecase.dart'
 import 'package:appmanga/features/points/domain/usecases/complete_task_usecase.dart';
 import 'package:appmanga/features/points/domain/usecases/get_point_history_usecase.dart';
 import 'package:appmanga/features/manga/domain/usecases/get_point_balance_usecase.dart';
+import 'package:appmanga/features/points/domain/entities/task_entity.dart'; // Thêm import entity
 import 'package:appmanga/features/points/presentation/bloc/points_event.dart';
 import 'package:appmanga/features/points/presentation/bloc/points_state.dart';
 
@@ -79,15 +80,20 @@ class PointsBloc extends Bloc<PointsEvent, PointsState> {
     result.fold(
       (failure) => emit(current.copyWith(isClaimingTaskId: '')),
       (data) {
+        // Cập nhật an toàn với kiểu dữ liệu rõ ràng
+        final List<TaskEntity> updatedDaily = current.dailyTasks.map((t) {
+          return t.id == event.taskId ? t.copyWith(isDone: true, canClaim: false) : t;
+        }).toList();
+
+        final List<TaskEntity> updatedOneTime = current.oneTimeTasks.map((t) {
+          return t.id == event.taskId ? t.copyWith(isDone: true, canClaim: false) : t;
+        }).toList();
+
         emit(current.copyWith(
           balance: data.newBalance,
           isClaimingTaskId: '',
-          dailyTasks: current.dailyTasks.map((t) =>
-            t.id == event.taskId ? t.copyWith(isDone: true, canClaim: false) : t
-          ).toList(),
-          oneTimeTasks: current.oneTimeTasks.map((t) =>
-            t.id == event.taskId ? t.copyWith(isDone: true, canClaim: false) : t
-          ).toList(),
+          dailyTasks: updatedDaily,
+          oneTimeTasks: updatedOneTime,
         ));
       },
     );

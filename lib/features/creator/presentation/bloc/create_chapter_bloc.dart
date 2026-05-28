@@ -1,7 +1,6 @@
-import 'dart:io';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
-import 'package:appmanga/core/error/failures.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:appmanga/features/manga/domain/entities/manga_entity.dart';
 import 'package:appmanga/features/manga/domain/usecases/create_chapter_usecase.dart';
 import 'package:appmanga/features/manga/domain/usecases/get_mangas_by_author_usecase.dart';
@@ -23,7 +22,7 @@ class CreateChapterMangaSelected extends CreateChapterEvent {
 }
 
 class CreateChapterPagesAdded extends CreateChapterEvent {
-  final List<File> files;
+  final List<XFile> files;
   CreateChapterPagesAdded(this.files);
 }
 
@@ -47,8 +46,8 @@ class CreateChapterSubmitted extends CreateChapterEvent {
   CreateChapterSubmitted({
     required this.chapterNumber,
     this.title,
-    this.isLocked      = false,
-    this.unlockCost    = 0,
+    this.isLocked = false,
+    this.unlockCost = 0,
     this.isPremiumOnly = false,
   });
 }
@@ -65,7 +64,7 @@ class CreateChapterLoadingMangas extends CreateChapterState {}
 class CreateChapterReady extends CreateChapterState {
   final List<MangaEntity> mangas;
   final MangaEntity? selectedManga;
-  final List<File> selectedPages;
+  final List<XFile> selectedPages;
   final bool isUploading;
   final int uploadedCount;
   final bool isSubmitting;
@@ -74,41 +73,37 @@ class CreateChapterReady extends CreateChapterState {
   CreateChapterReady({
     required this.mangas,
     this.selectedManga,
-    this.selectedPages  = const [],
-    this.isUploading    = false,
-    this.uploadedCount  = 0,
-    this.isSubmitting   = false,
+    this.selectedPages = const [],
+    this.isUploading = false,
+    this.uploadedCount = 0,
+    this.isSubmitting = false,
     this.errorMessage,
   });
 
   CreateChapterReady copyWith({
     List<MangaEntity>? mangas,
     MangaEntity? selectedManga,
-    List<File>? selectedPages,
+    List<XFile>? selectedPages,
     bool? isUploading,
     int? uploadedCount,
     bool? isSubmitting,
     String? errorMessage,
   }) {
     return CreateChapterReady(
-      mangas        : mangas         ?? this.mangas,
-      selectedManga : selectedManga  ?? this.selectedManga,
-      selectedPages : selectedPages  ?? this.selectedPages,
-      isUploading   : isUploading    ?? this.isUploading,
-      uploadedCount : uploadedCount  ?? this.uploadedCount,
-      isSubmitting  : isSubmitting   ?? this.isSubmitting,
-      errorMessage  : errorMessage,
+      mangas: mangas ?? this.mangas,
+      selectedManga: selectedManga ?? this.selectedManga,
+      selectedPages: selectedPages ?? this.selectedPages,
+      isUploading: isUploading ?? this.isUploading,
+      uploadedCount: uploadedCount ?? this.uploadedCount,
+      isSubmitting: isSubmitting ?? this.isSubmitting,
+      errorMessage: errorMessage,
     );
   }
 
-  bool get canSubmit =>
-      selectedManga != null && selectedPages.isNotEmpty;
+  bool get canSubmit => selectedManga != null && selectedPages.isNotEmpty;
 
   @override
-  List<Object?> get props => [
-    mangas, selectedManga, selectedPages,
-    isUploading, uploadedCount, isSubmitting, errorMessage,
-  ];
+  List<Object?> get props => [mangas, selectedManga, selectedPages, isUploading, uploadedCount, isSubmitting, errorMessage];
 }
 
 class CreateChapterSuccess extends CreateChapterState {
@@ -122,8 +117,7 @@ class CreateChapterError extends CreateChapterState {
 }
 
 // ── BLoC ─────────────────────────────────────────────
-class CreateChapterBloc
-    extends Bloc<CreateChapterEvent, CreateChapterState> {
+class CreateChapterBloc extends Bloc<CreateChapterEvent, CreateChapterState> {
   final GetMangasByAuthorUseCase getMangasByAuthorUseCase;
   final CreateChapterUseCase createChapterUseCase;
   final UploadRemoteDataSource uploadDataSource;
@@ -141,108 +135,68 @@ class CreateChapterBloc
     on<CreateChapterSubmitted>(_onSubmitted);
   }
 
-  Future<void> _onMangasLoaded(
-      CreateChapterMangasLoaded event,
-      Emitter<CreateChapterState> emit,
-      ) async {
+  Future<void> _onMangasLoaded(CreateChapterMangasLoaded event, Emitter<CreateChapterState> emit) async {
     emit(CreateChapterLoadingMangas());
     final result = await getMangasByAuthorUseCase(event.authorId);
     result.fold(
-          (failure) => emit(CreateChapterError(failure.message)),
-          (mangas)  => emit(CreateChapterReady(mangas: mangas)),
+      (failure) => emit(CreateChapterError(failure.message)),
+      (mangas) => emit(CreateChapterReady(mangas: mangas)),
     );
   }
 
-  void _onMangaSelected(
-      CreateChapterMangaSelected event,
-      Emitter<CreateChapterState> emit,
-      ) {
+  void _onMangaSelected(CreateChapterMangaSelected event, Emitter<CreateChapterState> emit) {
     if (state is! CreateChapterReady) return;
-    final current = state as CreateChapterReady;
-    emit(current.copyWith(selectedManga: event.manga));
+    emit((state as CreateChapterReady).copyWith(selectedManga: event.manga));
   }
 
-  void _onPagesAdded(
-      CreateChapterPagesAdded event,
-      Emitter<CreateChapterState> emit,
-      ) {
+  void _onPagesAdded(CreateChapterPagesAdded event, Emitter<CreateChapterState> emit) {
     if (state is! CreateChapterReady) return;
     final current = state as CreateChapterReady;
-    emit(current.copyWith(
-      selectedPages: [...current.selectedPages, ...event.files],
-    ));
+    emit(current.copyWith(selectedPages: [...current.selectedPages, ...event.files]));
   }
 
-  void _onPageRemoved(
-      CreateChapterPageRemoved event,
-      Emitter<CreateChapterState> emit,
-      ) {
+  void _onPageRemoved(CreateChapterPageRemoved event, Emitter<CreateChapterState> emit) {
     if (state is! CreateChapterReady) return;
     final current = state as CreateChapterReady;
-    final updated = List<File>.from(current.selectedPages)
-      ..removeAt(event.index);
+    final updated = List<XFile>.from(current.selectedPages)..removeAt(event.index);
     emit(current.copyWith(selectedPages: updated));
   }
 
-  void _onPagesReordered(
-      CreateChapterPagesReordered event,
-      Emitter<CreateChapterState> emit,
-      ) {
+  void _onPagesReordered(CreateChapterPagesReordered event, Emitter<CreateChapterState> emit) {
     if (state is! CreateChapterReady) return;
     final current = state as CreateChapterReady;
-    final pages = List<File>.from(current.selectedPages);
-    final item  = pages.removeAt(event.oldIndex);
+    final pages = List<XFile>.from(current.selectedPages);
+    final item = pages.removeAt(event.oldIndex);
     pages.insert(event.newIndex, item);
     emit(current.copyWith(selectedPages: pages));
   }
 
-  Future<void> _onSubmitted(
-      CreateChapterSubmitted event,
-      Emitter<CreateChapterState> emit,
-      ) async {
+  Future<void> _onSubmitted(CreateChapterSubmitted event, Emitter<CreateChapterState> emit) async {
     if (state is! CreateChapterReady) return;
     final current = state as CreateChapterReady;
     if (!current.canSubmit) return;
 
-    // Bước 1: Upload ảnh lên R2
     emit(current.copyWith(isUploading: true, uploadedCount: 0));
-    List<String> imageUrls;
     try {
-      imageUrls = await uploadDataSource.uploadPages(
-        current.selectedPages,
+      final imageUrls = await uploadDataSource.uploadPages(current.selectedPages);
+      emit(current.copyWith(isUploading: false, uploadedCount: imageUrls.length, isSubmitting: true));
+
+      final result = await createChapterUseCase(CreateChapterParams(
+        mangaId: current.selectedManga!.id,
+        chapterNumber: event.chapterNumber,
+        title: event.title,
+        isLocked: event.isLocked,
+        unlockCost: event.unlockCost,
+        isPremiumOnly: event.isPremiumOnly,
+        imageUrls: imageUrls,
+      ));
+
+      result.fold(
+        (failure) => emit(current.copyWith(isSubmitting: false, errorMessage: failure.message)),
+        (_) => emit(CreateChapterSuccess(current.selectedManga!.id)),
       );
-      emit(current.copyWith(
-        isUploading   : false,
-        uploadedCount : imageUrls.length,
-        isSubmitting  : true,
-      ));
     } catch (e) {
-      emit(current.copyWith(
-        isUploading  : false,
-        errorMessage : 'Upload ảnh thất bại: ${e.toString()}',
-      ));
-      return;
+      emit(current.copyWith(isUploading: false, errorMessage: 'Lỗi hệ thống: ${e.toString()}'));
     }
-
-    // Bước 2: Tạo chapter + thêm pages vào DB
-    final result = await createChapterUseCase(CreateChapterParams(
-      mangaId       : current.selectedManga!.id,
-      chapterNumber : event.chapterNumber,
-      title         : event.title,
-      isLocked      : event.isLocked,
-      unlockCost    : event.unlockCost,
-      isPremiumOnly : event.isPremiumOnly,
-      imageUrls     : imageUrls,
-    ));
-
-    result.fold(
-          (failure) => emit(current.copyWith(
-        isSubmitting : false,
-        errorMessage : failure.message,
-      )),
-          (_) => emit(CreateChapterSuccess(
-        current.selectedManga!.id,
-      )),
-    );
   }
 }

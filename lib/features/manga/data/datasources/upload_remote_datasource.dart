@@ -1,12 +1,11 @@
-import 'dart:io';
 import 'package:dio/dio.dart';
-import 'package:appmanga/core/constants/api_constants.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:appmanga/core/network/dio_client.dart';
 
 abstract class UploadRemoteDataSource {
-  Future<String> uploadCover(File file);
-  Future<List<String>> uploadPages(List<File> files);
-  Future<String> uploadAvatar(File file);
+  Future<String> uploadCover(XFile file);
+  Future<List<String>> uploadPages(List<XFile> files);
+  Future<String> uploadAvatar(XFile file);
 }
 
 class UploadRemoteDataSourceImpl implements UploadRemoteDataSource {
@@ -14,21 +13,29 @@ class UploadRemoteDataSourceImpl implements UploadRemoteDataSource {
   UploadRemoteDataSourceImpl(this._dioClient);
 
   @override
-  Future<String> uploadCover(File file) async {
+  Future<String> uploadCover(XFile file) async {
+    final bytes = await file.readAsBytes();
     final formData = FormData.fromMap({
-      'file': await MultipartFile.fromFile(file.path),
+      'file': MultipartFile.fromBytes(
+        bytes,
+        filename: file.name,
+      ),
     });
     final response = await _dioClient.dio.post('/upload/cover', data: formData);
     return response.data['data']['url'];
   }
 
   @override
-  Future<List<String>> uploadPages(List<File> files) async {
+  Future<List<String>> uploadPages(List<XFile> files) async {
     final formData = FormData();
     for (var file in files) {
+      final bytes = await file.readAsBytes();
       formData.files.add(MapEntry(
-        'files', // Key phải khớp với uploadMultiple ở Backend
-        await MultipartFile.fromFile(file.path),
+        'files',
+        MultipartFile.fromBytes(
+          bytes,
+          filename: file.name,
+        ),
       ));
     }
     final response = await _dioClient.dio.post('/upload/pages', data: formData);
@@ -36,9 +43,13 @@ class UploadRemoteDataSourceImpl implements UploadRemoteDataSource {
   }
 
   @override
-  Future<String> uploadAvatar(File file) async {
+  Future<String> uploadAvatar(XFile file) async {
+    final bytes = await file.readAsBytes();
     final formData = FormData.fromMap({
-      'file': await MultipartFile.fromFile(file.path),
+      'file': MultipartFile.fromBytes(
+        bytes,
+        filename: file.name,
+      ),
     });
     final response = await _dioClient.dio.post('/upload/avatar', data: formData);
     return response.data['data']['url'];
