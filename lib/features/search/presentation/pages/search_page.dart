@@ -20,60 +20,68 @@ class _SearchPageState extends State<SearchPage> {
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) => sl<SearchBloc>(),
-      child: Scaffold(
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          title: TextField(
-            controller: _controller,
-            autofocus: true,
-            onChanged: (value) {
-              context.read<SearchBloc>().add(SearchQueryChanged(value));
-            },
-            decoration: const InputDecoration(
-              hintText: 'Tìm kiếm truyện, tác giả...',
-              border: InputBorder.none,
+      child: Builder( // <-- Thêm Builder ở đây
+        builder: (newContext) { // <-- newContext này sẽ chứa SearchBloc
+          return Scaffold(
+            appBar: AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              title: TextField(
+                controller: _controller,
+                autofocus: true,
+                style: const TextStyle(color: Colors.white),
+                onChanged: (value) {
+                  // ✅ Sử dụng newContext ở đây
+                  newContext.read<SearchBloc>().add(SearchQueryChanged(value));
+                },
+                decoration: const InputDecoration(
+                  hintText: 'Tìm kiếm truyện, tác giả...',
+                  border: InputBorder.none,
+                  hintStyle: TextStyle(color: Colors.grey),
+                ),
+              ),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    _controller.clear();
+                    // ✅ Sử dụng newContext ở đây
+                    newContext.read<SearchBloc>().add(SearchCleared());
+                  },
+                ),
+              ],
             ),
-          ),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.clear),
-              onPressed: () {
-                _controller.clear();
-                context.read<SearchBloc>().add(SearchCleared());
+            body: BlocBuilder<SearchBloc, SearchState>(
+              builder: (context, state) {
+                if (state is SearchLoading) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (state is SearchEmpty) {
+                  return const Center(child: Text('Không tìm thấy kết quả'));
+                }
+                if (state is SearchError) {
+                  return Center(child: Text(state.message));
+                }
+                if (state is SearchLoaded) {
+                  return GridView.builder(
+                    padding: const EdgeInsets.all(16),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      childAspectRatio: 0.6,
+                      mainAxisSpacing: 16,
+                      crossAxisSpacing: 12,
+                    ),
+                    itemCount: state.results.length,
+                    itemBuilder: (context, index) {
+                      return MangaCardItem(manga: state.results[index]);
+                    },
+                  );
+                }
+                return const Center(child: Text('Nhập từ khóa để tìm kiếm'));
               },
             ),
-          ],
-        ),
-        body: BlocBuilder<SearchBloc, SearchState>(
-          builder: (context, state) {
-            if (state is SearchLoading) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (state is SearchEmpty) {
-              return const Center(child: Text('Không tìm thấy kết quả'));
-            }
-            if (state is SearchError) {
-              return Center(child: Text(state.message));
-            }
-            if (state is SearchLoaded) {
-              return GridView.builder(
-                padding: const EdgeInsets.all(16),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  childAspectRatio: 0.6,
-                  mainAxisSpacing: 16,
-                  crossAxisSpacing: 12,
-                ),
-                itemCount: state.results.length,
-                itemBuilder: (context, index) {
-                  return MangaCardItem(manga: state.results[index]);
-                },
-              );
-            }
-            return const Center(child: Text('Nhập từ khóa để tìm kiếm'));
-          },
-        ),
+          );
+        },
       ),
     );
   }
