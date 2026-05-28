@@ -23,11 +23,11 @@ class CommentBloc extends Bloc<CommentEvent, CommentState> {
     result.fold(
       (failure) => emit(CommentError(failure.message)),
       (data) {
-        final List<CommentEntity> comments = List<CommentEntity>.from(data['comments']);
+        final List<CommentEntity> comments = List<CommentEntity>.from(data['comments'] as List);
         emit(CommentLoaded(
           comments: comments,
-          nextCursor: data['nextCursor'],
-          hasMore: data['hasMore'] ?? false,
+          nextCursor: data['nextCursor'] as String?,
+          hasMore: (data['hasMore'] ?? false) as bool,
         ));
       },
     );
@@ -47,11 +47,11 @@ class CommentBloc extends Bloc<CommentEvent, CommentState> {
     result.fold(
       (failure) => emit(current.copyWith(isLoadingMore: false)),
       (data) {
-        final List<CommentEntity> newComments = List<CommentEntity>.from(data['comments']);
+        final List<CommentEntity> newComments = List<CommentEntity>.from(data['comments'] as List);
         emit(current.copyWith(
           comments: [...current.comments, ...newComments],
-          nextCursor: data['nextCursor'],
-          hasMore: data['hasMore'] ?? false,
+          nextCursor: data['nextCursor'] as String?,
+          hasMore: (data['hasMore'] ?? false) as bool,
           isLoadingMore: false,
         ));
       },
@@ -78,13 +78,13 @@ class CommentBloc extends Bloc<CommentEvent, CommentState> {
             isSubmitting: false,
           ));
         } else {
-          // Tạo bản sao của Map với kiểu dữ liệu tường minh (Strong Typing)
+          // Khởi tạo Map mới với kiểu dữ liệu chính xác tuyệt đối
           final Map<String, List<CommentEntity>> updatedReplies = {};
           current.replies.forEach((key, value) {
             updatedReplies[key] = List<CommentEntity>.from(value);
           });
           
-          final List<CommentEntity> existingList = updatedReplies[event.parentId] ?? [];
+          final List<CommentEntity> existingList = updatedReplies[event.parentId] ?? <CommentEntity>[];
           updatedReplies[event.parentId!] = [...existingList, newComment];
           
           emit(current.copyWith(
@@ -136,14 +136,12 @@ class CommentBloc extends Bloc<CommentEvent, CommentState> {
     result.fold(
       (failure) => null,
       (replies) {
-        // Sao chép và cập nhật Map an toàn
         final Map<String, List<CommentEntity>> updatedReplies = {};
         current.replies.forEach((key, value) {
           updatedReplies[key] = List<CommentEntity>.from(value);
         });
         
         updatedReplies[event.commentId] = List<CommentEntity>.from(replies);
-
         emit(current.copyWith(replies: updatedReplies));
       },
     );

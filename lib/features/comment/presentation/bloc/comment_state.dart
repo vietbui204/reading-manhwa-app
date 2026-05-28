@@ -48,7 +48,7 @@ class CommentLoaded extends CommentState {
       hasMore: hasMore ?? this.hasMore,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       isSubmitting: isSubmitting ?? this.isSubmitting,
-      replyingToId: replyingToId, // Can be null to clear
+      replyingToId: replyingToId, // Cho phép truyền null
       replyingToUsername: replyingToUsername,
       replies: replies ?? this.replies,
     );

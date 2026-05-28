@@ -14,6 +14,14 @@ class ReaderLoadRequested extends ReaderEvent {
   @override
   List<Object?> get props => [chapterId];
 }
+class ReaderUnlockChapterRequested extends ReaderEvent {
+  final String chapterId;
+
+  const ReaderUnlockChapterRequested(this.chapterId);
+
+  @override
+  List<Object?> get props => [chapterId];
+}
 
 class ReaderPageChanged extends ReaderEvent {
   final int pageIndex;

@@ -28,6 +28,7 @@ router.post(
   chapterController.addPages
 );
 
+
 router.put(
   '/chapters/:id',
   authenticate,

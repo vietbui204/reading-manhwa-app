@@ -28,6 +28,7 @@ class ReaderLoaded extends ReaderState {
     this.isFollowed = false,
   });
 
+
   ReaderLoaded copyWith({
     ChapterPagesEntity? data,
     int? currentPage,
@@ -48,6 +49,18 @@ class ReaderLoaded extends ReaderState {
 
   @override
   List<Object?> get props => [data, currentPage, showUI, brightness, isLiked, isFollowed];
+}
+class ReaderLocked extends ReaderState {
+  final String message;
+  final int unlockCost;
+
+  const ReaderLocked({
+    required this.message,
+    required this.unlockCost,
+  });
+
+  @override
+  List<Object?> get props => [message, unlockCost];
 }
 
 class ReaderError extends ReaderState {

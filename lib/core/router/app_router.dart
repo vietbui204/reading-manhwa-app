@@ -3,6 +3,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:appmanga/core/di/injection.dart';
 import 'package:appmanga/core/storage/local_storage.dart';
+import 'package:appmanga/features/creator/presentation/bloc/create_chapter_bloc.dart';
+// Creator
+import 'package:appmanga/features/creator/presentation/pages/create_chapter_page.dart';
+import 'package:appmanga/features/creator/presentation/bloc/create_chapter_bloc.dart';
 
 // Auth
 import 'package:appmanga/features/auth/presentation/pages/splash_page.dart';
@@ -21,7 +25,6 @@ import 'package:appmanga/features/manga_detail/presentation/bloc/manga_detail_bl
 import 'package:appmanga/features/manga_detail/presentation/bloc/manga_detail_event.dart';
 import 'package:appmanga/features/reader/presentation/pages/reader_page.dart';
 import 'package:appmanga/features/reader/presentation/bloc/reader_bloc.dart';
-import 'package:appmanga/features/reader/presentation/bloc/reader_bloc.dart' as reader;
 
 // Social & Profile
 import 'package:appmanga/features/bookmarks/presentation/pages/bookmarks_page.dart';
@@ -36,9 +39,16 @@ import 'package:appmanga/features/profile/presentation/bloc/profile_bloc.dart';
 import 'package:appmanga/features/profile/presentation/bloc/profile_event.dart';
 import 'package:appmanga/features/profile/presentation/pages/profile_page.dart';
 
-// Creator
-import 'package:appmanga/features/creator/presentation/bloc/create_chapter_bloc.dart';
-import 'package:appmanga/features/creator/presentation/pages/create_chapter_page.dart';
+// Points
+import 'package:appmanga/features/points/presentation/pages/points_page.dart';
+import 'package:appmanga/features/points/presentation/pages/points_history_page.dart';
+import 'package:appmanga/features/points/presentation/bloc/points_bloc.dart';
+import 'package:appmanga/features/points/presentation/bloc/points_event.dart';
+
+// Premium
+import 'package:appmanga/features/premium/presentation/pages/premium_page.dart';
+import 'package:appmanga/features/premium/presentation/bloc/premium_bloc.dart';
+import 'package:appmanga/features/premium/presentation/bloc/premium_event.dart';
 
 class AppRouter {
   static final router = GoRouter(
@@ -90,10 +100,34 @@ class AppRouter {
           final chapterId = state.pathParameters['chapterId']!;
           return BlocProvider(
             create: (_) => sl<ReaderBloc>()
-              ..add(reader.ReaderLoadRequested(chapterId)),
+              ..add(ReaderLoadRequested(chapterId)),
             child: ReaderPage(chapterId: chapterId),
           );
         },
+      ),
+
+      GoRoute(
+        path: '/points',
+        builder: (_, __) => BlocProvider(
+          create: (_) => sl<PointsBloc>()..add(PointsLoadRequested()),
+          child: const PointsPage(),
+        ),
+      ),
+
+      GoRoute(
+        path: '/points/history',
+        builder: (_, __) => BlocProvider(
+          create: (_) => sl<PointsBloc>()..add(PointsHistoryLoadRequested()),
+          child: const PointsHistoryPage(),
+        ),
+      ),
+
+      GoRoute(
+        path: '/premium',
+        builder: (_, __) => BlocProvider(
+          create: (_) => sl<PremiumBloc>()..add(PremiumLoadRequested()),
+          child: const PremiumPage(),
+        ),
       ),
 
       GoRoute(
@@ -102,6 +136,32 @@ class AppRouter {
           value: sl<NotificationBloc>(),
           child: const NotificationPage(),
         ),
+      ),
+
+      GoRoute(
+        path: '/profile/:id',
+        builder: (context, state) {
+          final userId = state.pathParameters['id']!;
+          return BlocProvider(
+            create: (_) => sl<ProfileBloc>()..add(ProfileLoadRequested(userId)),
+            child: ProfilePage(userId: userId),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/creator/chapter/new',
+        builder: (context, state) {
+          final mangaId = state.uri.queryParameters['mangaId'];
+          final userId  = sl<LocalStorage>().getUserId() ?? '';
+          return BlocProvider(
+            create: (_) {
+              final bloc = sl<CreateChapterBloc>();
+              bloc.add(CreateChapterMangasLoaded(userId));
+              return bloc;
+            },
+            child: CreateChapterPage(preselectedMangaId: mangaId),
+          );
+        },
       ),
 
       GoRoute(
@@ -118,33 +178,6 @@ class AppRouter {
           create: (_) => sl<HistoryBloc>()..add(HistoryLoadRequested()),
           child: const HistoryPage(),
         ),
-      ),
-
-      GoRoute(
-        path: '/profile/:id',
-        builder: (context, state) {
-          final userId = state.pathParameters['id']!;
-          return BlocProvider(
-            create: (_) => sl<ProfileBloc>()..add(ProfileLoadRequested(userId)),
-            child: ProfilePage(userId: userId),
-          );
-        },
-      ),
-
-      GoRoute(
-        path: '/creator/chapter/new',
-        builder: (context, state) {
-          final mangaId = state.uri.queryParameters['mangaId'];
-          return BlocProvider(
-            create: (_) {
-              final bloc = sl<CreateChapterBloc>();
-              final userId = sl<LocalStorage>().getUserId() ?? '';
-              bloc.add(CreateChapterMangasLoaded(userId));
-              return bloc;
-            },
-            child: CreateChapterPage(preselectedMangaId: mangaId),
-          );
-        },
       ),
     ],
   );

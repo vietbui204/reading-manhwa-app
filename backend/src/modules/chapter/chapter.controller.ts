@@ -33,6 +33,20 @@ export class ChapterController {
       next(error);
     }
   }
+async unlockChapter(req: Request, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user!.userId;
+
+    const result = await chapterService.unlockChapter(
+      req.params.id,
+      userId
+    );
+
+    sendSuccess(res, result, 'Mở khoá chapter thành công');
+  } catch (error) {
+    next(error);
+  }
+}
 
   async getChapter(req: Request, res: Response, next: NextFunction) {
     try {

@@ -56,6 +56,61 @@ class _ReaderPageState extends State<ReaderPage> {
               ),
             );
           }
+          if (state is ReaderLocked) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.lock,
+                    color: AppColors.red,
+                    size: 56,
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  Text(
+                    state.message,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  Text(
+                    'Cần ${state.unlockCost} điểm để mở khóa',
+                    style: const TextStyle(
+                      color: Colors.white70,
+                    ),
+                  ),
+
+                  const SizedBox(height: 28),
+
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.red,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 14,
+                      ),
+                    ),
+                    onPressed: () {
+                      context.read<ReaderBloc>().add(
+                        ReaderUnlockChapterRequested(widget.chapterId),
+                      );
+                    },
+                    icon: const Icon(Icons.lock_open),
+                    label: Text(
+                      'Mở khóa (${state.unlockCost} điểm)',
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
           if (state is ReaderLoaded) {
             return _buildReaderContent(context, state);
           }

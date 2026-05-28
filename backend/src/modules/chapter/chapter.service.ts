@@ -44,6 +44,71 @@ export class ChapterService {
     return chapters;
   }
 
+async unlockChapter(chapterId: string, userId: string) {
+  const chapter = await prisma.chapter.findUnique({
+    where: { id: chapterId },
+  });
+
+  if (!chapter) {
+    throw new AppError('Không tìm thấy chapter', 404);
+  }
+
+  if (!chapter.isLocked) {
+    return { message: 'Chapter này không cần mở khoá' };
+  }
+
+  const existedUnlock = await prisma.chapterUnlock.findUnique({
+    where: {
+      userId_chapterId: {
+        userId,
+        chapterId,
+      },
+    },
+  });
+
+  if (existedUnlock) {
+    return { message: 'Bạn đã mở khoá chapter này rồi' };
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { pointBalance: true },
+  });
+
+  if (!user) {
+    throw new AppError('Không tìm thấy người dùng', 404);
+  }
+
+  if (user.pointBalance < chapter.unlockCost) {
+    throw new AppError('Bạn không đủ điểm để mở khoá chapter này', 400);
+  }
+
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: userId },
+      data: {
+        pointBalance: {
+          decrement: chapter.unlockCost,
+        },
+      },
+    }),
+    prisma.chapterUnlock.create({
+      data: {
+        userId,
+        chapterId,
+      },
+    }),
+  ]);
+
+  await redisHelper.del(`chapter_pages:${chapterId}`);
+
+  return {
+    chapterId,
+    unlockCost: chapter.unlockCost,
+    message: 'Mở khoá chapter thành công',
+  };
+}
+
   async getChapterById(chapterId: string, userId?: string, isPremium: boolean = false) {
     const chapter = await prisma.chapter.findUnique({
       where: { id: chapterId },

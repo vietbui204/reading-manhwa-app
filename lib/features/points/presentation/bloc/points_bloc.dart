@@ -1,11 +1,13 @@
+import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:appmanga/features/points/domain/entities/task_entity.dart';
+import 'package:appmanga/features/points/domain/entities/point_transaction_entity.dart';
 import 'package:appmanga/features/points/domain/usecases/get_tasks_usecase.dart';
 import 'package:appmanga/features/points/domain/usecases/complete_task_usecase.dart';
 import 'package:appmanga/features/points/domain/usecases/get_point_history_usecase.dart';
 import 'package:appmanga/features/manga/domain/usecases/get_point_balance_usecase.dart';
-import 'package:appmanga/features/points/domain/entities/task_entity.dart'; // Thêm import entity
-import 'package:appmanga/features/points/presentation/bloc/points_event.dart';
-import 'package:appmanga/features/points/presentation/bloc/points_state.dart';
+import 'points_event.dart';
+import 'points_state.dart';
 
 class PointsBloc extends Bloc<PointsEvent, PointsState> {
   final GetTasksUseCase getTasksUseCase;
@@ -80,13 +82,19 @@ class PointsBloc extends Bloc<PointsEvent, PointsState> {
     result.fold(
       (failure) => emit(current.copyWith(isClaimingTaskId: '')),
       (data) {
-        // Cập nhật an toàn với kiểu dữ liệu rõ ràng
+        // Cập nhật trạng thái nhiệm vụ an toàn
         final List<TaskEntity> updatedDaily = current.dailyTasks.map((t) {
-          return t.id == event.taskId ? t.copyWith(isDone: true, canClaim: false) : t;
+          if (t.id == event.taskId) {
+            return t.copyWith(isDone: true, canClaim: false);
+          }
+          return t;
         }).toList();
 
         final List<TaskEntity> updatedOneTime = current.oneTimeTasks.map((t) {
-          return t.id == event.taskId ? t.copyWith(isDone: true, canClaim: false) : t;
+          if (t.id == event.taskId) {
+            return t.copyWith(isDone: true, canClaim: false);
+          }
+          return t;
         }).toList();
 
         emit(current.copyWith(

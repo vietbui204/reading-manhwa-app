@@ -1,5 +1,3 @@
-import 'package:appmanga/features/manga/domain/entities/manga_entity.dart';
-import 'package:appmanga/features/manga/domain/usecases/create_chapter_usecase.dart';
 import 'package:dartz/dartz.dart';
 import 'package:appmanga/core/error/error_handler.dart';
 import 'package:appmanga/core/error/failures.dart';
@@ -10,64 +8,26 @@ import 'package:appmanga/features/manga/domain/entities/chapter_pages_entity.dar
 import 'package:appmanga/features/manga/domain/entities/chapter_entity.dart';
 import 'package:appmanga/features/manga/domain/entities/page_entity.dart';
 import 'package:appmanga/features/manga/domain/entities/history_entity.dart';
+import 'package:appmanga/features/manga/domain/entities/manga_entity.dart';
 import 'package:appmanga/features/bookmarks/domain/entities/bookmark_entity.dart';
 import 'package:appmanga/features/comment/domain/entities/comment_entity.dart';
 import 'package:appmanga/features/manga/domain/repositories/manga_repository.dart';
+import 'package:appmanga/features/manga/domain/usecases/create_manga_usecase.dart';
+import 'package:appmanga/features/manga/domain/usecases/create_chapter_usecase.dart';
 import 'package:appmanga/features/manga/data/models/chapter_model.dart';
 import 'package:appmanga/features/manga/data/models/manga_model.dart';
 import 'package:appmanga/features/manga/data/models/history_model.dart';
 import 'package:appmanga/features/bookmarks/data/models/bookmark_model.dart';
 import 'package:appmanga/features/comment/data/models/comment_model.dart';
-import '../datasources/manga_remote_datasource.dart';
+import 'package:appmanga/features/manga/data/datasources/manga_remote_datasource.dart';
 
 class MangaRepositoryImpl implements MangaRepository {
   final MangaRemoteDataSource _remote;
 
   MangaRepositoryImpl(this._remote);
 
-  // Helper để ép kiểu an toàn
+  // Helper để ép kiểu an toàn (tránh lỗi double trên Web)
   int _safeInt(dynamic value) => MangaModel.toInt(value);
-
-  @override
-  Future<Either<Failure, void>> createChapter(
-      CreateChapterParams params,
-      ) async {
-    try {
-      // Bước 1: Tạo chapter
-      final chapter = await _remote.createChapter(
-        params.mangaId,
-        chapterNumber : params.chapterNumber,
-        title         : params.title,
-        isLocked      : params.isLocked,
-        unlockCost    : params.unlockCost,
-        isPremiumOnly : params.isPremiumOnly,
-      );
-      // Bước 2: Thêm pages vào chapter vừa tạo
-      if (params.imageUrls.isNotEmpty) {
-        await _remote.addPagesToChapter(
-          chapter['id'],
-          params.imageUrls,
-        );
-      }
-      return const Right(null);
-    } catch (e) {
-      return Left(ErrorHandler.handle(e));
-    }
-  }
-
-  @override
-  Future<Either<Failure, List<MangaEntity>>> getMangasByAuthor(
-      String authorId,
-      ) async {
-    try {
-      final result = await _remote.getMangasByAuthor(authorId);
-      return Right(result.map((e) =>
-          MangaModel.fromJson(e as Map<String, dynamic>)
-      ).toList());
-    } catch (e) {
-      return Left(ErrorHandler.handle(e));
-    }
-  }
 
   @override
   Future<Either<Failure, HomeDataEntity>> getHomeData() async {
@@ -126,8 +86,10 @@ class MangaRepositoryImpl implements MangaRepository {
   Future<Either<Failure, ChapterPagesEntity>> getChapterPages(String chapterId) async {
     try {
       final dynamic response = await _remote.getChapterPages(chapterId);
+      
       List<PageEntity> pages = [];
       
+      // Trường hợp 1: API trả về trực tiếp mảng các trang
       if (response is List) {
         pages = response.map<PageEntity>((e) => PageEntity(
           id: e['id']?.toString() ?? '',
@@ -152,7 +114,6 @@ class MangaRepositoryImpl implements MangaRepository {
       
       final chapter = ChapterModel.fromJson(Map<String, dynamic>.from(response['chapter']));
       final List pagesRaw = response['pages'] as List? ?? [];
-      
       pages = pagesRaw.map<PageEntity>((e) => PageEntity(
         id: e['id']?.toString() ?? '',
         pageNumber: _safeInt(e['pageNumber'] ?? e['page_number']),
@@ -178,13 +139,57 @@ class MangaRepositoryImpl implements MangaRepository {
   }
 
   @override
-  Future<Either<Failure, void>> likeManga(String mangaId) async {
+  Future<Either<Failure, void>> createChapter(CreateChapterParams params) async {
     try {
-      await _remote.likeManga(mangaId);
+      final chapter = await _remote.createChapter(
+        params.mangaId,
+        chapterNumber: params.chapterNumber,
+        title: params.title,
+        isLocked: params.isLocked,
+        unlockCost: params.unlockCost,
+        isPremiumOnly: params.isPremiumOnly,
+      );
+      if (params.imageUrls.isNotEmpty) {
+        await _remote.addPagesToChapter(chapter['id'], params.imageUrls);
+      }
       return const Right(null);
     } catch (e) {
       return Left(ErrorHandler.handle(e));
     }
+  }
+
+  @override
+  Future<Either<Failure, MangaEntity>> createManga(CreateMangaParams params) async {
+    try {
+      final result = await _remote.createManga(
+        title: params.title,
+        description: params.description,
+        coverUrl: params.coverUrl,
+        status: params.status,
+        genres: params.genres,
+      );
+      return Right(result);
+    } catch (e) {
+      return Left(ErrorHandler.handle(e));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<MangaEntity>>> getMangasByAuthor(String authorId) async {
+    try {
+      final result = await _remote.getMangasByAuthor(authorId);
+      return Right(result.map((e) => MangaModel.fromJson(Map<String, dynamic>.from(e))).toList());
+    } catch (e) {
+      return Left(ErrorHandler.handle(e));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> likeManga(String mangaId) async {
+    try {
+      await _remote.likeManga(mangaId);
+      return const Right(null);
+    } catch (e) { return Left(ErrorHandler.handle(e)); }
   }
 
   @override
@@ -192,9 +197,7 @@ class MangaRepositoryImpl implements MangaRepository {
     try {
       await _remote.unlikeManga(mangaId);
       return const Right(null);
-    } catch (e) {
-      return Left(ErrorHandler.handle(e));
-    }
+    } catch (e) { return Left(ErrorHandler.handle(e)); }
   }
 
   @override
@@ -202,9 +205,7 @@ class MangaRepositoryImpl implements MangaRepository {
     try {
       await _remote.followManga(mangaId);
       return const Right(null);
-    } catch (e) {
-      return Left(ErrorHandler.handle(e));
-    }
+    } catch (e) { return Left(ErrorHandler.handle(e)); }
   }
 
   @override
@@ -212,9 +213,7 @@ class MangaRepositoryImpl implements MangaRepository {
     try {
       await _remote.unfollowManga(mangaId);
       return const Right(null);
-    } catch (e) {
-      return Left(ErrorHandler.handle(e));
-    }
+    } catch (e) { return Left(ErrorHandler.handle(e)); }
   }
 
   @override
@@ -222,29 +221,23 @@ class MangaRepositoryImpl implements MangaRepository {
     try {
       await _remote.updateReadingHistory(chapterId);
       return const Right(null);
-    } catch (e) {
-      return Left(ErrorHandler.handle(e));
-    }
+    } catch (e) { return Left(ErrorHandler.handle(e)); }
   }
 
   @override
   Future<Either<Failure, List<HistoryEntity>>> getReadingHistory({int page = 1, int limit = 20}) async {
     try {
       final result = await _remote.getReadingHistory(page: page, limit: limit);
-      return Right(result.map((e) => HistoryModel.fromJson(e)).toList());
-    } catch (e) {
-      return Left(ErrorHandler.handle(e));
-    }
+      return Right(result.map((e) => HistoryModel.fromJson(Map<String, dynamic>.from(e))).toList());
+    } catch (e) { return Left(ErrorHandler.handle(e)); }
   }
 
   @override
   Future<Either<Failure, List<BookmarkEntity>>> getBookmarks({int page = 1, int limit = 20}) async {
     try {
       final result = await _remote.getBookmarks(page: page, limit: limit);
-      return Right(result.map((e) => BookmarkModel.fromJson(e)).toList());
-    } catch (e) {
-      return Left(ErrorHandler.handle(e));
-    }
+      return Right(result.map((e) => BookmarkModel.fromJson(Map<String, dynamic>.from(e))).toList());
+    } catch (e) { return Left(ErrorHandler.handle(e)); }
   }
 
   @override
@@ -252,9 +245,7 @@ class MangaRepositoryImpl implements MangaRepository {
     try {
       final result = await _remote.unlockChapter(chapterId);
       return Right(result);
-    } catch (e) {
-      return Left(ErrorHandler.handle(e));
-    }
+    } catch (e) { return Left(ErrorHandler.handle(e)); }
   }
 
   @override
@@ -262,25 +253,21 @@ class MangaRepositoryImpl implements MangaRepository {
     try {
       final result = await _remote.getPointBalance();
       return Right(result);
-    } catch (e) {
-      return Left(ErrorHandler.handle(e));
-    }
+    } catch (e) { return Left(ErrorHandler.handle(e)); }
   }
 
   @override
   Future<Either<Failure, Map<String, dynamic>>> getComments(String mangaId, {String? cursor, int limit = 20}) async {
     try {
       final result = await _remote.getComments(mangaId, cursor: cursor, limit: limit);
-      final List commentsRaw = result['comments'] as List? ?? [];
-      final comments = commentsRaw.map((e) => CommentModel.fromJson(e)).toList();
+      final List commentsRaw = result['data'] as List? ?? [];
+      final comments = commentsRaw.map((e) => CommentModel.fromJson(Map<String, dynamic>.from(e))).toList();
       return Right({
         'comments': comments,
         'nextCursor': result['nextCursor'],
         'hasMore': result['hasMore'] ?? false,
       });
-    } catch (e) {
-      return Left(ErrorHandler.handle(e));
-    }
+    } catch (e) { return Left(ErrorHandler.handle(e)); }
   }
 
   @override
@@ -288,19 +275,15 @@ class MangaRepositoryImpl implements MangaRepository {
     try {
       final result = await _remote.createComment(mangaId, content: content, parentId: parentId);
       return Right(CommentModel.fromJson(result));
-    } catch (e) {
-      return Left(ErrorHandler.handle(e));
-    }
+    } catch (e) { return Left(ErrorHandler.handle(e)); }
   }
 
   @override
   Future<Either<Failure, List<CommentEntity>>> getCommentReplies(String commentId) async {
     try {
       final result = await _remote.getCommentReplies(commentId);
-      return Right(result.map((e) => CommentModel.fromJson(e)).toList());
-    } catch (e) {
-      return Left(ErrorHandler.handle(e));
-    }
+      return Right(result.map((e) => CommentModel.fromJson(Map<String, dynamic>.from(e))).toList());
+    } catch (e) { return Left(ErrorHandler.handle(e)); }
   }
 
   @override
@@ -308,9 +291,7 @@ class MangaRepositoryImpl implements MangaRepository {
     try {
       await _remote.updateComment(commentId, content);
       return const Right(null);
-    } catch (e) {
-      return Left(ErrorHandler.handle(e));
-    }
+    } catch (e) { return Left(ErrorHandler.handle(e)); }
   }
 
   @override
@@ -318,9 +299,7 @@ class MangaRepositoryImpl implements MangaRepository {
     try {
       await _remote.deleteComment(commentId);
       return const Right(null);
-    } catch (e) {
-      return Left(ErrorHandler.handle(e));
-    }
+    } catch (e) { return Left(ErrorHandler.handle(e)); }
   }
 
   @override
@@ -328,9 +307,7 @@ class MangaRepositoryImpl implements MangaRepository {
     try {
       await _remote.likeComment(commentId);
       return const Right(null);
-    } catch (e) {
-      return Left(ErrorHandler.handle(e));
-    }
+    } catch (e) { return Left(ErrorHandler.handle(e)); }
   }
 
   @override
@@ -338,8 +315,6 @@ class MangaRepositoryImpl implements MangaRepository {
     try {
       await _remote.unlikeComment(commentId);
       return const Right(null);
-    } catch (e) {
-      return Left(ErrorHandler.handle(e));
-    }
+    } catch (e) { return Left(ErrorHandler.handle(e)); }
   }
 }

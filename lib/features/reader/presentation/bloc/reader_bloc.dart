@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:appmanga/features/manga/domain/usecases/unlock_chapter_usecase.dart';
 import 'package:equatable/equatable.dart';
 import 'package:appmanga/features/manga/domain/entities/chapter_pages_entity.dart';
 import 'package:appmanga/features/manga/domain/usecases/get_chapter_pages_usecase.dart';
@@ -19,10 +20,12 @@ class ReaderBloc extends Bloc<ReaderEvent, ReaderState> {
   final UnlikeMangaUseCase unlikeMangaUseCase;
   final FollowMangaUseCase followMangaUseCase;
   final UnfollowMangaUseCase unfollowMangaUseCase;
+  final UnlockChapterUseCase unlockChapterUseCase;
 
   ReaderBloc({
     required this.getChapterPagesUseCase,
     required this.updateReadingHistoryUseCase,
+    required this.unlockChapterUseCase,
     required this.likeMangaUseCase,
     required this.unlikeMangaUseCase,
     required this.followMangaUseCase,
@@ -32,25 +35,48 @@ class ReaderBloc extends Bloc<ReaderEvent, ReaderState> {
     on<ReaderPageChanged>(_onPageChanged);
     on<ReaderUIToggled>(_onUIToggled);
     on<ReaderBrightnessChanged>(_onBrightnessChanged);
+    on<ReaderUnlockChapterRequested>(_onUnlockChapterRequested);
     on<ReaderNextChapter>(_onNextChapter);
     on<ReaderPrevChapter>(_onPrevChapter);
     on<ReaderLikeToggled>(_onLikeToggled);
     on<ReaderFollowToggled>(_onFollowToggled);
   }
 
-  Future<void> _onLoadRequested(ReaderLoadRequested event, Emitter<ReaderState> emit) async {
+  Future<void> _onLoadRequested(
+      ReaderLoadRequested event,
+      Emitter<ReaderState> emit,
+      ) async {
     emit(ReaderLoading());
+
     final result = await getChapterPagesUseCase(event.chapterId);
+
     result.fold(
-      (failure) => emit(ReaderError(failure.message)),
-      (data) {
-        emit(ReaderLoaded(
-          data: data,
-          currentPage: 0,
-          brightness: state is ReaderLoaded ? (state as ReaderLoaded).brightness : 1.0,
-        ));
-        // Ghi lịch sử ngay sau khi load thành công (fire-and-forget)
-        updateReadingHistoryUseCase(UpdateReadingHistoryParams(chapterId: event.chapterId));
+          (failure) {
+        if (failure.statusCode == 403) {
+          emit(
+            const ReaderLocked(
+              message: 'Chapter này đang bị khóa',
+              unlockCost: 10,
+            ),
+          );
+        } else {
+          emit(ReaderError(failure.message));
+        }
+      },
+          (data) {
+        emit(
+          ReaderLoaded(
+            data: data,
+            currentPage: 0,
+            brightness: state is ReaderLoaded
+                ? (state as ReaderLoaded).brightness
+                : 1.0,
+          ),
+        );
+
+        updateReadingHistoryUseCase(
+          UpdateReadingHistoryParams(chapterId: event.chapterId),
+        );
       },
     );
   }
@@ -103,6 +129,21 @@ class ReaderBloc extends Bloc<ReaderEvent, ReaderState> {
     result.fold(
       (failure) => emit(current.copyWith(isLiked: wasLiked)),
       (_) => null,
+    );
+  }
+  Future<void> _onUnlockChapterRequested(
+      ReaderUnlockChapterRequested event,
+      Emitter<ReaderState> emit,
+      ) async {
+    final result = await unlockChapterUseCase(event.chapterId);
+
+    result.fold(
+          (failure) {
+        emit(ReaderError(failure.message));
+      },
+          (_) {
+        add(ReaderLoadRequested(event.chapterId));
+      },
     );
   }
 
